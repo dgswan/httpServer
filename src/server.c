@@ -2,12 +2,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <stdio.h>
 
 int main()
 {
-    int sock, listener;
+    int sock, listener, bytes_to_send = 0;
     struct sockaddr_in addr;
-    char buf[1024];
+    char buf[256], fname[1024];
     int bytes_read;
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
@@ -47,9 +48,19 @@ int main()
             close(listener);
             while(1)
             {
-                bytes_read = recv(sock, buf, 1024, 0);
-                if(bytes_read <= 0) break;
-                send(sock, buf, bytes_read, 0);
+                bytes_read = recv(sock, fname, 1024, 0);
+                if (bytes_read <= 0) break;
+		FILE *input = fopen(fname,"r");
+		fseek(input, 0L, SEEK_END);
+		bytes_to_send = ftell(input);
+		fseek(input, 0L, SEEK_SET);
+		printf("%d\n", bytes_to_send);
+		send(sock, &bytes_to_send, sizeof(int), 0);
+		while (!feof(input)) {
+			//bytes_to_send += fread( buf, 1, 256, input);
+                	send(sock, buf, sizeof(char) * fread(buf, sizeof(char), 256, input), 0);
+		}
+//		send(sock, buf, bytes_to_send, 0); 
             }
 
             close(sock);
