@@ -4,13 +4,20 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/epoll.h>
+#include <fcntl.h>
 #include "processpool.h"
 #define PROCESS_COUNT 10
 #define REQUEST_MAX_SIZE 256
+#define MAXEVENTS 64
 
 int main()
 {
     //printf("BEGIN");
+    struct epoll_event event;
+    struct epoll_event *events;
+    int efd;
+
     processpool_t *pool;
     childprocess_t *child;
     int sock, listener, bytes_to_send = 0;
@@ -18,7 +25,7 @@ int main()
     char buf[256], fname[1024];
     int bytes_read;
     char request[REQUEST_MAX_SIZE];
-    int request_size, i;
+    int request_size, i, n;
     int queries[2], responses[2];
     request_sock_t request_info;
     response_sock_t response_info;
@@ -29,6 +36,7 @@ int main()
         perror("socket");
         exit(1);
     }
+    fcntl(listener, F_SETFL, O_NONBLOCK);
     
     addr.sin_family = AF_INET;
     addr.sin_port = htons(3425);
@@ -40,7 +48,23 @@ int main()
     }
 
     listen(listener, 1);
+
+    efd = epoll_create1(0);
+    event.data.fd = listener;
+    event.events = EPOLLIN | EPOLLET;
+    epoll_ctl(efd, EPOLL_CTL_ADD, listener, &event);
+
     pool = processpool_create(PROCESS_COUNT);
+
+    for (i = 0; i < PROCESS_COUNT; i++) {
+	event.data.fd = pool->processes[i].responses[0];
+	if (getpid() == pool->parentpid)
+		printf("%d\n",event.data.fd);
+	event.events = EPOLLIN | EPOLLET;
+	epoll_ctl(efd, EPOLL_CTL_ADD, pool->processes[i].responses[0], &event);
+    }
+
+    events = calloc(MAXEVENTS, sizeof(struct epoll_event));
     //printf("getpid() = %d, parentpid = %d\n", getpid(), pool->parentpid);
     //sock = accept(listener, NULL, NULL);
     //if (sock < 0) {
@@ -57,6 +81,28 @@ int main()
     //	}
     //}
 	//printf("%d\n", getpid()==pool->parentpid);
+				/*	sock = accept(listener, NULL, NULL);
+					if (infd == -1) {
+						if ((errno == EAGAIN) ||(errno == EWOULDBLOCK)) [
+                          				// We have processed all incoming
+			                        	//connections.
+                          				break;
+						}
+						else {
+							perror ("accept");
+							break;
+						}
+					fcntl(sock, F_SETFL, O_NONBLOCK);
+					event.data.fd = sock;
+					event.events = EPOLLIN | EPOLLET;
+					epoll_ctl(efd, EPOLL_CTL_ADD, sock, &event);
+					continue;
+                    		}
+			}
+			else {
+			}
+		}
+	}*/
 	if (getpid() != pool->parentpid) {
 		//printf("CHILD\n");
 		child = get_its_info(pool);
@@ -88,8 +134,44 @@ int main()
 		}
 	}
 	else {
+	while (1) {
+		n = epoll_wait(efd, events, MAXEVENTS, -1);
+		for (i = 0; i < n; i++) {
+			if (listener == events[i].data.fd) {
+				while (1) {
+					printf("I'm listening\n");
+					sock = accept(listener, NULL, NULL);
+					if (sock == -1) {
+						if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+							break;
+						}
+						else {
+							perror("accept");
+							break;
+						}
+					}
+					printf("preparing for sending\n");
+					request_size = recv(sock, request, REQUEST_MAX_SIZE, 0);
+					send_request_to_processpool(pool, sock, request, request_size);
+					printf("request sended : open %s\n", request);
+				}
+			}
+			else {
+				printf("Sended from %d\n",events[i].data.fd);
+				read(events[i].data.fd, &response_info, sizeof(response_sock_t));
+				printf("response info has been read succesfully\n");
+				read(events[i].data.fd, buf, response_info.size);
+				printf("response data has been read: \n");
+				printf("%s\n", buf);
+				printf("Sending data");
+				send(response_info.sock, buf, response_info.size, 0);
+				printf("DONE\n");
+			}
+		}
+	}
+	}
 		//printf("PARENT\n");
-		while (1) {
+	/*	while (1) {
 			printf("I'm listening\n");
 			sock = accept(listener, NULL, NULL);
 			if (sock < 0) {
@@ -113,7 +195,7 @@ int main()
 			}
 			//send(sock, request, request_size, 0);
 		}
-	}
+	}*/
 	//printf("IT'S OVER\n");
     /*while(1)
     {
