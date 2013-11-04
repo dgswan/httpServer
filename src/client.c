@@ -30,13 +30,13 @@ int main()
     }
 
     send(sock, message, sizeof(message), 0);
-    recv(sock, &response_size, sizeof(int), 0);
-    printf("%d\n", response_size);
-    while (bytes_received != response_size) {
-	bytes_received += recv(sock, buf, 256, 0);	
-    	printf("%s\n", buf);
-	printf("%d\n", bytes_received);
-    }
+    recv(sock, buf, 256, 0);
+    printf("%s\n", buf);
+    //while (bytes_received != response_size) {
+//	bytes_received += recv(sock, buf, 256, 0);	
+  //  	printf("%s\n", buf);
+//	printf("%d\n", bytes_received);
+  //  }
     close(sock);
 
     return 0;
