@@ -3,11 +3,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <string.h>
 
 char message[] = "input.txt";
 char buf[256];
 
-int main()
+int main(int argc, char **argv)
 {
     int sock;
     int response_size = 0, bytes_received = 0;
@@ -29,9 +30,10 @@ int main()
         exit(2);
     }
 
-    send(sock, message, sizeof(message), 0);
-    recv(sock, buf, 256, 0);
-    printf("%s\n", buf);
+    
+    send(sock, argv[1], strlen(argv[1]), 0);
+    while(recv(sock, buf, 256, 0) != 0)
+    	printf("%s\n", buf);
     //while (bytes_received != response_size) {
 //	bytes_received += recv(sock, buf, 256, 0);	
   //  	printf("%s\n", buf);

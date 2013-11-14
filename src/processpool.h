@@ -1,3 +1,5 @@
+#define MAX_RESPONSE_SIZE 256
+
 typedef struct childprocess {
 	int queries[2];
 	int responses[2];
@@ -14,6 +16,9 @@ typedef struct processpool {
 typedef struct response_sock {
 	int size;
 	int sock;
+	char response[MAX_RESPONSE_SIZE];
+	int done;
+	int filesize;
 } response_sock_t;
 
 typedef struct request_sock {

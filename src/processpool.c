@@ -3,19 +3,6 @@
 #include <fcntl.h>
 #include "processpool.h"
 
-/*typedef struct childprocess {
-	int queries[2];
-	int responses[2];
-	pid_t process;
-} childprocess_t;
-
-typedef struct processpool {
-	childprocess_t *processes;
-	pid_t parentpid;
-	int pcount;
-	int processqueue[2];
-} processpool_t;*/
-
 childprocess_t *childprocess_create() {
 	childprocess_t *cp = (childprocess_t*)malloc(sizeof(childprocess_t));
 	pipe(cp->queries);
@@ -71,7 +58,6 @@ void childprocess_delete(childprocess_t *cp) {
 
 void getinline(processpool_t *pool, childprocess_t *cp) {
 	write(pool->processqueue[1], cp, sizeof(childprocess_t));
-	printf("GOT IN LINE\n");
 }
 
 processpool_t *processpool_create(int pcount) {
@@ -114,15 +100,12 @@ void processpool_delete(processpool_t *pool) {
 }
 
 void send_request_to_processpool(processpool_t *pool, int sock, char *request, int size) {	
-	childprocess_t cp;// = (childprocess_t*)malloc(sizeof(childprocess_t));
-	printf("I'm trying to take spare process\n");
+	childprocess_t cp;
 	read(pool->processqueue[0], &cp, sizeof(childprocess_t));
-	printf("I got spare process\n");
 	request_sock_t rs;
 	rs.sock = sock;
 	rs.size = size;
 	write(cp.queries[1], &rs, sizeof(request_sock_t));
-	printf("sending request to childprocess %s\n", request);
 	write(cp.queries[1], request, size);
 }
 
